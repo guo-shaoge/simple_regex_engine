@@ -1,0 +1,2 @@
+ [ state0 ] - a -> [ state3 ] - SPLIT -> [ state1 ] - b -> [ state4 ] - EMPTY -> [ accept ]
+ [ state3 ] - SPLIT -> [ state2 ] - c -> [ state4 ]

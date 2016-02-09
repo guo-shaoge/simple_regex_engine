@@ -8,6 +8,8 @@ typedef struct state {
     int ch;
     struct state *out;
     struct state *out1;
+	int state_index;
+	int has_been_printed;
 }state;
 
 typedef struct nfa_frag {
@@ -21,6 +23,7 @@ typedef struct list {
 }list;
 
 list g_list1, g_list2;
+int state_num = 0;
 enum {SPLIT=128, EMPTY, ACCEPT};
 state accept_state = { ACCEPT, NULL, NULL };
 
@@ -122,8 +125,10 @@ state *post2nfa(char *postfix)
                 news->ch = SPLIT;
                 news->out = f1.start_state;
                 news->out1 = f2.start_state;
+				news->state_index = state_num++;
                 newf->start_state = news;
                 news = calloc(1, sizeof(state));
+				news->state_index = state_num++;
                 news->ch = EMPTY;
                 f1.last_state->out = news;
                 f2.last_state->out = news;
@@ -144,6 +149,8 @@ state *post2nfa(char *postfix)
                 news1 = calloc(1, sizeof(state));
                 news1->ch = EMPTY;
                 news = calloc(1, sizeof(state));
+				news->state_index = state_num++;
+				news1->state_index = state_num++;
                 newf = calloc(1, sizeof(nfa_frag));
                 news->ch = SPLIT;
                 news->out = f1.start_state;
@@ -156,6 +163,7 @@ state *post2nfa(char *postfix)
             case '?':
                 f1 = pop();
                 news = calloc(1, sizeof(state));
+				news->state_index = state_num++;
                 news->ch = SPLIT;
                 news->out = f1.start_state;
                 newf = calloc(1, sizeof(nfa_frag));
@@ -173,6 +181,9 @@ state *post2nfa(char *postfix)
 				news = calloc(1, sizeof(state));	
 				news1 = calloc(1, sizeof(state));	
 				news2 = calloc(1, sizeof(state));	
+				news->state_index = state_num++;
+				news1->state_index = state_num++;
+				news2->state_index = state_num++;
 				news->out = f1.start_state;
 				news->out1 = news1;
 				news->ch = SPLIT;
@@ -190,6 +201,7 @@ state *post2nfa(char *postfix)
                 newf = calloc(1, sizeof(nfa_frag));
                 news = calloc(1, sizeof(state));
                 news->ch = ch;
+				news->state_index = state_num++;
                 newf->start_state = news;
                 newf->last_state = news;
                 push(*newf);
@@ -245,8 +257,10 @@ int step(list *cur_list, list *next_list, char ch)
 int match(const char *str, state *start)
 {
     char ch;
+	int i;
     list *cur_list, *next_list, *t;
 
+	i = 0;
     cur_list = &g_list1;
     next_list = &g_list2;
 	memset(cur_list, 0, sizeof(g_list1));
@@ -258,28 +272,71 @@ int match(const char *str, state *start)
         t = cur_list; cur_list = next_list;
         next_list = t;
     }
-	if (cur_list->state_arr[0] == &accept_state)
+
+	while (i < cur_list->num) {
+		if (cur_list->state_arr[i] == &accept_state)
+			return 1;
+		else  {
+			i++;
+			continue;
+		}
+	}
+	if (cur_list->state_arr[i] == &accept_state)
 		return 1;
 	else 
 		return -1;
 }
 
+void print_nfa(state *s, FILE* fp)
+{
+	if (s == NULL)
+		return;
+	if (s->ch == ACCEPT) {
+		fprintf(fp, " [ accept ]\n");
+		return;
+	}
+	fprintf(fp, " [ state%d ]", s->state_index);
+	if (s->has_been_printed)
+		return;
+	s->has_been_printed = 1;
+	if (s->ch == EMPTY) {
+		fprintf(fp, " - EMPTY ->");
+		print_nfa(s->out, fp);
+	} else if (s->ch == SPLIT) {
+		fprintf(fp, " - SPLIT ->");
+		print_nfa(s->out, fp);
+		fprintf(fp, " [ state%d ] - SPLIT ->", s->state_index);
+		print_nfa(s->out1, fp);
+	} else {
+		fprintf(fp, " - %c ->", s ->ch);
+		print_nfa(s->out, fp);
+	}
+}
+	
 int main(int argc, char *argv[])
 {
     state *start;
     char pattern[STKSIZE], string[STKSIZE], *post;
-    int ret, i;
+    int ret;
+	FILE *fp;
 
-	i = 2;
-	if (argc < 3) 
-		error("usage: ./nfa regex string ...\n");
-	post = reg2post(argv[1]);
-	printf("postfix regex: %s\n", post);
+	printf("input pattern: ");
+	memset(pattern, 0, sizeof(pattern));
+	if (scanf("%s", pattern) < 0) error("scanf error\n");
+	post = reg2post(pattern);
+	printf("post: %s\n", post);
 	start = post2nfa(post);
-	while (argv[i]) {
-		ret = match(argv[i++], start);
-        if (ret>0) printf("match\n");
-        else printf("don't match\n");
+	if ((fp = fopen("./graph_nfa.txt", "w+")) == NULL)
+		error("fopen error\n");
+	print_nfa(start, fp);
+	fclose(fp);
+	while (1) {
+		printf("input string: ");
+		memset(string, 0, sizeof(string));
+		if (scanf("%s", string) < 0) error("scanf error\n");
+		ret = match(string, start);
+		if (ret > 0) printf("--->%s match %s\n", string, pattern);
+		else printf("--->%s don't match %s\n", string, pattern);
 	}
 }
 
