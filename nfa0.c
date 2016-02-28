@@ -316,13 +316,15 @@ void print_nfa(state *s, FILE* fp)
 int main(int argc, char *argv[])
 {
     state *start;
-    char pattern[STKSIZE], string[STKSIZE], *post;
-    int ret;
+    char *pattern, *string, *post;
+    int ret, n;
 	FILE *fp;
 
+	string = malloc(sizeof(char)*STKSIZE);
+	pattern = malloc(sizeof(char)*STKSIZE);
 	printf("input pattern: ");
-	memset(pattern, 0, sizeof(pattern));
-	if (scanf("%s", pattern) < 0) error("scanf error\n");
+	memset(pattern, 0, sizeof(char)*STKSIZE);
+	if (getline(&pattern, &n, stdin) < 0) error("scanf error\n");
 	post = reg2post(pattern);
 	printf("post: %s\n", post);
 	start = post2nfa(post);
@@ -332,8 +334,8 @@ int main(int argc, char *argv[])
 	fclose(fp);
 	while (1) {
 		printf("input string: ");
-		memset(string, 0, sizeof(string));
-		if (scanf("%s", string) < 0) error("scanf error\n");
+		memset(string, 0, sizeof(char)*STKSIZE);
+		if (getline(&string, &n, stdin) < 0) error("scanf error\n");
 		ret = match(string, start);
 		if (ret > 0) printf("--->%s match %s\n", string, pattern);
 		else printf("--->%s don't match %s\n", string, pattern);
